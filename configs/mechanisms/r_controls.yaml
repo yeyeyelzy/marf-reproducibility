@@ -1,0 +1,6 @@
+r_stop_gradient:
+  relation_detach_prediction: true
+r_label_only:
+  relation_target: label_only
+r_no_mask:
+  relation_target: prediction_only

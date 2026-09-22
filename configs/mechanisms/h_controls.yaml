@@ -1,0 +1,4 @@
+h_uniform:
+  hierarchy_aggregation: uniform
+h_no_residual:
+  hierarchy_writeback: replace

@@ -59,6 +59,7 @@ The analysis scripts export only to a user-provided private directory:
 python -m analysis.r_geometry --help
 python -m analysis.e_gate_statistics --help
 python -m analysis.h_attention_statistics --help
+python -m analysis.summarize_runs --help
 ```
 
 Do not commit their outputs.  The release package uses synthetic tests only.

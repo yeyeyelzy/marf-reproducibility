@@ -1,0 +1,10 @@
+# Declarative description of the full H/E/R factorial study.
+# Materialize runnable per-variant YAMLs with scripts.run_factorial.
+a000: {H: false, E: false, R: false}
+a001: {H: false, E: false, R: true}
+a010: {H: false, E: true, R: false}
+a011: {H: false, E: true, R: true}
+a100: {H: true, E: false, R: false}
+a101: {H: true, E: false, R: true}
+a110: {H: true, E: true, R: false}
+a111: {H: true, E: true, R: true}

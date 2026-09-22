@@ -1,11 +1,11 @@
 # Controlled clinical data, private derived assets, and experiment outputs
-data/
-assets/
-private*/
-results/
-outputs/
-checkpoints/
-logs/
+/data/
+/assets/
+/private*/
+/results/
+/outputs/
+/checkpoints/
+/logs/
 *.pt
 *.pth
 *.ckpt
