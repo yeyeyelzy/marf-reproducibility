@@ -1,0 +1,39 @@
+# Controlled clinical data, private derived assets, and experiment outputs
+data/
+assets/
+private*/
+results/
+outputs/
+checkpoints/
+logs/
+*.pt
+*.pth
+*.ckpt
+*.npy
+*.npz
+*.pkl
+*.pickle
+*.parquet
+*.h5
+*.hdf5
+*.csv
+*.tsv
+*.zip
+
+# Environments and generated files
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+*.egg-info/
+build/
+dist/
+.coverage
+htmlcov/
+
+# Operating-system/editor metadata
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

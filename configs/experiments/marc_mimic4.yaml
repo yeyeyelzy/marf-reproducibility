@@ -1,0 +1,30 @@
+# Replace every private path before use.  This file contains no patient data.
+model:
+  code_size: 48
+  graph_size: 32
+  hidden_size: 150
+  temporal_attention_size: 32
+  output_size: 1
+  dropout_rate: 0.0
+  gap_bins: 16
+  gap_embed_size: 32
+  state_size: 64
+  use_hierarchy: true
+  ontology_path: REPLACE_WITH_PRIVATE_MIMIC4_CCS_HIERARCHY_NPZ
+  hierarchy_attention_size: 128
+  hierarchy_residual_init: 0.10
+  hierarchy_aggregation: attention
+  hierarchy_writeback: residual
+  use_edge_calibration: true
+  edge_use_state: true
+  use_relation_calibration: true
+  relation_loss_weight: 1.0
+  relation_detach_prediction: false
+  relation_target: prediction_x_label
+training:
+  max_epochs: 40
+  batch_size: 16
+  weight_decay: 0.0
+  patience: 5
+  min_delta: 0.0001
+  seed: 123

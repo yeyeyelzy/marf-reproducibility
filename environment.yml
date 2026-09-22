@@ -1,0 +1,17 @@
+name: marc-server
+channels:
+  - conda-forge
+dependencies:
+  - python=3.8.16
+  - numpy=1.24.4
+  - pandas=2.0.2
+  - pyyaml=6.0.1
+  - scikit-learn=1.2.2
+  - pytest=7.4.0
+  - pip
+  - pip:
+      - -e .
+
+# Install the PyTorch build separately, using the exact CUDA-compatible build
+# recorded on the execution server.  It is intentionally not pinned here until
+# that server-side environment record has been independently exported.
