@@ -17,8 +17,17 @@ BLOCKED_SUFFIXES = {
 }
 BLOCKED_ROOT_DIRECTORIES = {"data", "assets", "results", "outputs", "checkpoints", "logs"}
 TEXT_SUFFIXES = {".py", ".md", ".txt", ".yml", ".yaml", ".toml", ".json", ".sh"}
-IDENTITY_MARKERS = ("github.com/yeyey", "lin ziy", "linz")
 EMAIL_PATTERN = re.compile(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}")
+UNIX_HOME_PREFIXES = (r"/" + r"home" + r"/", r"/" + r"Users" + r"/")
+PERSONAL_PATH_PATTERN = re.compile(
+    r"(?:{}[^/\\\s]+/|{}[^/\\\s]+/|[A-Za-z]:\\\\Users\\\\[^\\\\/\s]+\\\\)".format(
+        *UNIX_HOME_PREFIXES
+    )
+)
+GITHUB_PROFILE_URL_PATTERN = re.compile(r"https?://github\.com/[A-Za-z0-9_.-]+(?:/|\b)")
+INSTITUTIONAL_URL_PATTERN = re.compile(
+    r"https?://[^\s/]+\.(?:edu|ac\.[A-Za-z]{2,})(?:/|\b)", re.IGNORECASE
+)
 
 
 def candidate_files(root: Path) -> Iterable[Path]:
@@ -38,19 +47,20 @@ def find_issues(root: Path) -> List[str]:
             issues.append("private-looking suffix: {}".format(relative))
         if relative.parts and relative.parts[0].lower() in BLOCKED_ROOT_DIRECTORIES:
             issues.append("private-looking directory: {}".format(relative))
-        if relative.as_posix() == "scripts/check_release.py":
-            continue
         if path.suffix.lower() in TEXT_SUFFIXES:
             try:
                 content = path.read_text(encoding="utf-8").lower()
             except UnicodeDecodeError:
                 issues.append("non-UTF8 text candidate: {}".format(relative))
                 continue
-            markers = [marker for marker in IDENTITY_MARKERS if marker in content]
-            if markers:
-                issues.append("identity marker {} in {}".format(", ".join(markers), relative))
             if EMAIL_PATTERN.search(content):
                 issues.append("email-like text in {}".format(relative))
+            if PERSONAL_PATH_PATTERN.search(content):
+                issues.append("personal absolute path in {}".format(relative))
+            if GITHUB_PROFILE_URL_PATTERN.search(content):
+                issues.append("GitHub profile or repository URL in {}".format(relative))
+            if INSTITUTIONAL_URL_PATTERN.search(content):
+                issues.append("institutional URL in {}".format(relative))
     return issues
 
 
@@ -65,7 +75,7 @@ def main() -> None:
         for issue in issues:
             print("- {}".format(issue))
         raise SystemExit(1)
-    print("Release check passed: no blocked assets or simple identity markers found.")
+    print("Release check passed: no blocked assets or generic identity signals found.")
 
 
 if __name__ == "__main__":
