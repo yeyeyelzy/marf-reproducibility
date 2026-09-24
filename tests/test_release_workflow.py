@@ -3,7 +3,7 @@ import sys
 import numpy as np
 import torch
 
-from marc.data import load_sparse
+from marc.data.dataset import load_sparse
 from marc.preprocessing.mimic4 import _load_gem, save_sparse
 from scripts.evaluate import main as evaluate_main
 from scripts.train import main as train_main
