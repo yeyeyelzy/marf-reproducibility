@@ -4,7 +4,7 @@ from pathlib import Path
 
 from marc.data import HeartFailureDataset, load_adjacency
 from marc.models import MARC
-from marc.training.engine import train
+from marc.training.engine import seed_everything, train
 
 from .common import load_run_config, select_device, write_json
 
@@ -21,6 +21,9 @@ def main() -> None:
     config, training, raw = load_run_config(args.config)
     if args.seed is not None:
         training.seed = args.seed
+    # Model parameters are initialized below, so the run seed has to be set
+    # before constructing the model as well as before the training loop.
+    seed_everything(training.seed)
     device = select_device(args.device)
     adjacency = load_adjacency(args.data_root, device)
     train_data = HeartFailureDataset(args.data_root, "train", training.batch_size, True, device)

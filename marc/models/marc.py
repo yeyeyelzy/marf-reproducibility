@@ -18,6 +18,8 @@ class MARC(nn.Module):
         super().__init__()
         config.validate()
         self.code_num = int(code_num)
+        if adjacency.ndim != 2 or tuple(adjacency.shape) != (self.code_num, self.code_num):
+            raise ValueError("adjacency must have shape [code_num, code_num].")
         self.config = config
         self.embedding_layer = CodeEmbeddingLayer(code_num, config.code_size, config.graph_size)
         self.graph_layer = GraphLayer(adjacency, config.code_size, config.graph_size)

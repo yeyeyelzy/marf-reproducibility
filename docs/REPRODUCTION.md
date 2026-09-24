@@ -8,11 +8,15 @@ training.  For MIMIC-IV, the release includes an entry point:
 
 ```bash
 python -m scripts.preprocess_mimic4 \
-  --diagnoses /secure/raw/mimiciv/diagnoses_icd.csv.gz \
-  --admissions /secure/raw/mimiciv/admissions.csv.gz \
-  --gem /secure/knowledge/2018_I10gem.txt \
-  --output-root /secure/mimic4_assets
+  --mimic-root /secure/raw/mimiciv \
+  --gem-csv /secure/knowledge/2018_I10gem.txt \
+  --destination /secure/mimic4_assets
 ```
+
+`--gem-csv` accepts either CDC's fixed-width `2018_I10gem.txt` file or a
+two-column CSV headed `ICD10,ICD9`.  The MIMIC-IV root must contain the
+authorized `hosp/patients`, `hosp/admissions`, and `hosp/diagnoses_icd`
+tables in CSV or CSV.GZ form.
 
 Then create a private hierarchy asset and replace the placeholder
 `ontology_path` in the dataset configuration.

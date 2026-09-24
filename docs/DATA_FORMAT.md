@@ -23,11 +23,15 @@ loader validates the expected shapes before training.  The held-out final
 visit provides only the heart-failure label; it is not part of `code_x`.
 
 `code_adj.npz` is the training-only graph passed to graph propagation.  The
-graph builder counts unique within-visit code pairs, leaves self loops absent,
+MIMIC-IV asset builder constructs it from coded visits of training-split
+patients, counts unique within-visit code pairs, leaves self loops absent,
 prunes low row shares, and finally row-normalizes the nonnegative adjacency.
 The raw support is symmetric, while the final row-normalized matrix can be
 asymmetric.  E only scales positive entries of this saved matrix, so it does
 not create new edges and cannot increase a nonnegative original weight.
+
+F1 is calculated using the fixed probability threshold 0.5.  AUROC, AUPRC,
+and Brier score use the unthresholded probabilities.
 
 For hierarchy calibration, construct a separate private `ccs_hierarchy.npz`
 with `ancestor_ids` and `ancestor_mask` using `scripts.build_ccs_hierarchy`.

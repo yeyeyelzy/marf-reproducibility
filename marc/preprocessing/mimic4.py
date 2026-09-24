@@ -32,11 +32,31 @@ def _read_table(root: Path, name: str) -> pd.DataFrame:
 
 
 def _load_gem(path: Path) -> Dict[str, str]:
-    table = pd.read_csv(path, dtype=str)
-    columns = {name.upper(): name for name in table.columns}
-    if "ICD10" not in columns or "ICD9" not in columns:
-        raise ValueError("GEM CSV must contain ICD10 and ICD9 columns.")
-    return {str(row[columns["ICD10"]]).strip(): str(row[columns["ICD9"]]).strip() for _, row in table.iterrows()}
+    """Read either the standard two-column CSV or CDC's fixed-width GEM file."""
+    try:
+        table = pd.read_csv(path, dtype=str)
+    except pd.errors.ParserError:
+        table = None
+    if table is not None:
+        columns = {name.upper(): name for name in table.columns}
+        if "ICD10" in columns and "ICD9" in columns:
+            return {
+                str(row[columns["ICD10"]]).strip(): str(row[columns["ICD9"]]).strip()
+                for _, row in table.iterrows()
+                if str(row[columns["ICD10"]]).strip()
+            }
+    mapping: Dict[str, str] = {}
+    with path.open("r", encoding="ascii") as source:
+        for raw_line in source:
+            line = raw_line.rstrip("\r\n")
+            if not line:
+                continue
+            icd10, icd9 = line[0:7].strip(), line[8:13].strip()
+            if icd10 and icd9:
+                mapping[icd10] = icd9
+    if not mapping:
+        raise ValueError("GEM input must be a CSV with ICD10/ICD9 columns or a CDC fixed-width I10 GEM file.")
+    return mapping
 
 
 def _map_icd(code: str, version: int, gem: Dict[str, str]) -> str:

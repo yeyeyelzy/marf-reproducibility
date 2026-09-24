@@ -15,8 +15,24 @@ def load_sparse(path: Path) -> np.ndarray:
     with np.load(str(path), allow_pickle=False) as payload:
         if set(payload.files) != {"idx", "values", "shape"}:
             raise ValueError("Sparse asset must contain idx, values, and shape: {}".format(path))
-        indices, values, shape = payload["idx"], payload["values"], tuple(payload["shape"].tolist())
-    matrix = np.zeros(shape, dtype=values.dtype)
+        indices, values, shape = payload["idx"], payload["values"], payload["shape"]
+    if shape.ndim != 1 or not np.issubdtype(shape.dtype, np.integer) or np.any(shape < 0):
+        raise ValueError("Sparse asset shape must be a one-dimensional non-negative integer array: {}".format(path))
+    dimensions = tuple(int(value) for value in shape.tolist())
+    if indices.ndim != 2 or indices.shape[0] != len(dimensions):
+        raise ValueError("Sparse asset idx must have shape [rank, nonzero_count]: {}".format(path))
+    numeric_or_boolean = np.issubdtype(values.dtype, np.number) or np.issubdtype(values.dtype, np.bool_)
+    if values.ndim != 1 or values.size != indices.shape[1] or not numeric_or_boolean:
+        raise ValueError("Sparse asset values must be a numeric vector aligned with idx: {}".format(path))
+    if indices.size and (
+        not np.issubdtype(indices.dtype, np.integer)
+        or np.any(indices < 0)
+        or np.any(indices >= np.asarray(dimensions, dtype=indices.dtype).reshape(-1, 1))
+    ):
+        raise ValueError("Sparse asset idx contains an out-of-bounds coordinate: {}".format(path))
+    if not np.all(np.isfinite(values)):
+        raise ValueError("Sparse asset values must be finite: {}".format(path))
+    matrix = np.zeros(dimensions, dtype=values.dtype)
     matrix[tuple(indices)] = values
     return matrix
 
@@ -67,6 +83,8 @@ class HeartFailureDataset:
             self.labels = np.asarray(payload["hf_y"], dtype=np.float32).reshape(-1)
         weight_path = self.path / "time_weight.npz" if time_weight_mode == "split_specific" else self.root / "time_weight.npz"
         self.time_weight = load_sparse(weight_path)
+        if self.time_weight.ndim != 3:
+            raise ValueError("time_weight must have shape [N, C, 1].")
         if self.time_weight.shape[0] < self.code_x.shape[0]:
             raise ValueError("Time weights do not cover this data split.")
         if time_weight_mode == "split_specific" and self.time_weight.shape[0] != self.code_x.shape[0]:
@@ -79,11 +97,17 @@ class HeartFailureDataset:
         candidate = self.path / "code_x_timestamp.npz"
         if not candidate.is_file():
             return None
-        with np.load(str(candidate), allow_pickle=True) as payload:
+        with np.load(str(candidate), allow_pickle=False) as payload:
+            if set(payload.files) != {"time"}:
+                raise ValueError("Timestamp asset must contain only time: {}".format(candidate))
             return payload["time"]
 
     def _validate(self) -> None:
+        if self.code_x.ndim != 3:
+            raise ValueError("code_x must have shape [N, T, C].")
         n, max_visits, code_num = self.code_x.shape
+        if n < 1 or max_visits < 1 or code_num < 1:
+            raise ValueError("code_x dimensions must all be positive.")
         if self.divided.shape != (n, max_visits, code_num, 3):
             raise ValueError("divided must have shape [N, T, C, 3].")
         if self.neighbors.shape != self.code_x.shape:
@@ -92,8 +116,21 @@ class HeartFailureDataset:
             raise ValueError("visit_lens and hf_y must have one value per patient.")
         if np.any(self.visit_lens < 1) or np.any(self.visit_lens > max_visits):
             raise ValueError("visit_lens must be within [1, max_visits].")
-        if self.time_weight.shape[1:] != (code_num, 1):
+        if self.time_weight.shape != (n, code_num, 1):
             raise ValueError("time_weight must have shape [N, C, 1].")
+        if np.any(~np.isfinite(self.code_x)) or np.any(self.code_x < 0):
+            raise ValueError("code_x must be finite and non-negative.")
+        if np.any(~np.isfinite(self.divided)) or np.any(self.divided < 0):
+            raise ValueError("divided must be finite and non-negative.")
+        if np.any(~np.isfinite(self.neighbors)) or np.any(self.neighbors < 0):
+            raise ValueError("neighbors must be finite and non-negative.")
+        if np.any(~np.isfinite(self.time_weight)) or np.any(self.time_weight < 0):
+            raise ValueError("time_weight must be finite and non-negative.")
+        if np.any((self.labels != 0.0) & (self.labels != 1.0)):
+            raise ValueError("hf_y must contain binary labels.")
+        if self.timestamps is not None:
+            if self.timestamps.shape != (n, max_visits) or not np.issubdtype(self.timestamps.dtype, np.number):
+                raise ValueError("Timestamp asset must have shape [N, T] with numeric values.")
 
     def __len__(self) -> int:
         return int(np.ceil(self.size / self.batch_size))
