@@ -38,7 +38,7 @@ Create the server environment as described in
 synthetic test suite:
 
 ```bash
-python -m pip install -e .
+python -m pip install -e ".[test]"
 pytest -q
 ```
 

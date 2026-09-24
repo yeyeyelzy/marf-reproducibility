@@ -16,6 +16,11 @@ dependencies = [
   "torch>=1.8",
 ]
 
+[project.optional-dependencies]
+test = [
+  "pytest==7.4.0",
+]
+
 [tool.setuptools]
 packages = ["marc", "marc.data", "marc.models", "marc.preprocessing", "marc.training", "scripts", "analysis"]
 
