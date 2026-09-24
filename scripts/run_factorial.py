@@ -14,6 +14,8 @@ def main() -> None:
     parser.add_argument("--output-dir", required=True)
     args = parser.parse_args()
     model, training, _ = load_run_config(args.base_config)
+    model.validate()
+    training.validate()
     output = Path(args.output_dir)
     output.mkdir(parents=True, exist_ok=True)
     for h in (False, True):

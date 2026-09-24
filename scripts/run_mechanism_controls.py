@@ -19,6 +19,10 @@ def main() -> None:
     parser.add_argument("--output-dir", required=True)
     args = parser.parse_args()
     model, training, _ = load_run_config(args.base_config)
+    model.validate()
+    training.validate()
+    if not (model.use_hierarchy and model.use_edge_calibration and model.use_relation_calibration):
+        raise ValueError("Mechanism controls must be generated from a full-MARC configuration with H, E, and R enabled.")
     output = Path(args.output_dir)
     output.mkdir(parents=True, exist_ok=True)
     h_uniform = deepcopy(model); h_uniform.hierarchy_aggregation = "uniform"

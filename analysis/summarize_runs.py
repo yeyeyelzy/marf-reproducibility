@@ -22,6 +22,8 @@ def main() -> None:
             payload = json.load(handle)
         record = payload.get("metrics", payload)
         records.append({name: float(record[name]) for name in METRICS})
+    if len(records) < 2:
+        raise ValueError("At least two runs are required to report a sample standard deviation.")
     summary = {
         name: {
             "mean": float(np.mean([record[name] for record in records])),

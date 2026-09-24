@@ -19,7 +19,10 @@ def mean_pair_similarity(embeddings: np.ndarray, labels: np.ndarray):
     values = np.maximum(normalized @ normalized.T, 0.0)
     upper = np.triu_indices(labels.size, k=1)
     same = labels[upper[0]] == labels[upper[1]]
-    return float(values[upper][same].mean()), float(values[upper][~same].mean())
+    same_values, different_values = values[upper][same], values[upper][~same]
+    if not same_values.size or not different_values.size:
+        raise ValueError("Geometry analysis requires at least one same-class and one cross-class patient pair.")
+    return float(same_values.mean()), float(different_values.mean())
 
 
 def main() -> None:

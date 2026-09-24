@@ -1,8 +1,10 @@
 import sys
 
 import numpy as np
+import pytest
 import torch
 
+from analysis.r_geometry import mean_pair_similarity
 from marc.data.dataset import load_sparse
 from marc.preprocessing.mimic4 import _load_gem, save_sparse
 from scripts.evaluate import main as evaluate_main
@@ -133,3 +135,9 @@ def test_gem_loader_accepts_csv_and_cdc_fixed_width_formats(tmp_path):
     fixed_width_path.write_text("A000    00100  0\n", encoding="ascii")
     assert _load_gem(csv_path) == {"A000": "001.0"}
     assert _load_gem(fixed_width_path) == {"A000": "00100"}
+
+
+def test_geometry_requires_both_pair_types():
+    embeddings = np.asarray([[1.0, 0.0], [0.0, 1.0]], dtype=np.float64)
+    with pytest.raises(ValueError, match="same-class and one cross-class"):
+        mean_pair_similarity(embeddings, np.asarray([0, 1], dtype=np.int64))

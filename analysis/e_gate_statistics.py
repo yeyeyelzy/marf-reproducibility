@@ -22,6 +22,8 @@ def main() -> None:
     parser.add_argument("--device", default="auto")
     parser.add_argument("--reservoir-size", type=int, default=200000)
     args = parser.parse_args()
+    if args.reservoir_size < 1:
+        raise ValueError("reservoir-size must be positive.")
     config, training, _ = load_run_config(args.config)
     if not config.use_edge_calibration:
         raise ValueError("E gate statistics require use_edge_calibration=True.")
@@ -50,6 +52,8 @@ def main() -> None:
                             if replacement < reservoir.size:
                                 reservoir[replacement] = value
                         count += 1
+    if count == 0:
+        raise ValueError("The adjacency has no positive edges, so there are no E gates to summarize.")
     used = reservoir[: min(count, reservoir.size)]
     variance = max(total_square / max(count, 1) - (total / max(count, 1)) ** 2, 0.0)
     row = {"edge_visit_count": count, "gamma_mean": total / max(count, 1), "gamma_std": variance ** 0.5}
