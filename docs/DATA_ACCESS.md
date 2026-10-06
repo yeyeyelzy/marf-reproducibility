@@ -17,3 +17,9 @@ assets from an authorized local copy of the corresponding database.  Their
 outputs should be checked against the contract in
 [DATA_FORMAT.md](DATA_FORMAT.md).  No private asset should be copied into this
 repository, an issue, a pull request, or a public artifact.
+
+The unified entry point is `python -m scripts.preprocess_mimic --dataset ...`.
+It writes a private `split_ids.json` alongside the tensors so an exact formal
+split can be reused without relying on Python set iteration order.  This
+manifest contains patient identifiers and is subject to the same controlled
+data boundary as every other derived MIMIC asset.

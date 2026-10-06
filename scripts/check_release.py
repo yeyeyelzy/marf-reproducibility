@@ -16,6 +16,7 @@ BLOCKED_SUFFIXES = {
     ".h5", ".hdf5", ".csv", ".tsv", ".zip",
 }
 BLOCKED_ROOT_DIRECTORIES = {"data", "assets", "results", "outputs", "checkpoints", "logs"}
+BLOCKED_BASENAMES = {"code_map.json", "split_ids.json"}
 TEXT_SUFFIXES = {".py", ".md", ".txt", ".yml", ".yaml", ".toml", ".json", ".sh"}
 EMAIL_PATTERN = re.compile(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}")
 UNIX_HOME_PREFIXES = (r"/" + r"home" + r"/", r"/" + r"Users" + r"/")
@@ -45,6 +46,8 @@ def find_issues(root: Path) -> List[str]:
         relative = path.relative_to(root)
         if path.suffix.lower() in BLOCKED_SUFFIXES:
             issues.append("private-looking suffix: {}".format(relative))
+        if path.name.lower() in BLOCKED_BASENAMES:
+            issues.append("private cohort manifest: {}".format(relative))
         if relative.parts and relative.parts[0].lower() in BLOCKED_ROOT_DIRECTORIES:
             issues.append("private-looking directory: {}".format(relative))
         if path.suffix.lower() in TEXT_SUFFIXES:

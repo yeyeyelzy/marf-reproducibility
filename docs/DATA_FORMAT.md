@@ -6,6 +6,8 @@ by `.gitignore`.  `data_root` passed to a training command has this layout:
 ```text
 data_root/
 ├── code_adj.npz
+├── code_map.json           # private cohort-derived diagnosis vocabulary
+├── split_ids.json          # private exact patient split manifest
 ├── train/
 │   ├── code_x.npz          # sparse [N, T, C]
 │   ├── code_y.npz          # optional private sparse target codes [N, C]
@@ -23,6 +25,10 @@ Sparse assets use exactly three arrays: `idx`, `values`, and `shape`.  The
 loader validates the expected shapes before training.  The held-out final
 visit is not part of `code_x`; it supplies `code_y` and the heart-failure
 label used by the prediction task.
+
+`split_ids.json` is written to make the exact patient split reusable without
+depending on Python set iteration order.  Both JSON files are controlled,
+cohort-derived artifacts and must remain outside the source repository.
 
 `code_adj.npz` is the training-split graph passed to graph propagation.  To
 match the retained TCEM preprocessing used for the reported experiments, the

@@ -2,7 +2,7 @@ import numpy as np
 
 from marc.data.dataset import load_sparse
 from marc.preprocessing.graph import build_cooccurrence_graph, divide_transition_groups, generate_neighbors
-from marc.preprocessing.mimic3 import build_private_assets, load_patient_visits
+from marc.preprocessing.mimic import build_private_assets, load_patient_visits
 
 
 def test_graph_support_and_row_normalization():
@@ -50,10 +50,11 @@ def test_mimic3_builder_matches_formal_target_visit_graph_scope(tmp_path):
     (raw / "ADMISSIONS.csv").write_text("\n".join(admission_lines) + "\n", encoding="ascii")
     (raw / "DIAGNOSES_ICD.csv").write_text("\n".join(diagnosis_lines) + "\n", encoding="ascii")
 
-    patients = load_patient_visits(str(raw))
+    patients = load_patient_visits("mimic3", str(raw))
     assert list(patients) == [1, 2, 3, 4, 5]
     assert patients[1][0][1] == ["250.00", "401.9"]
     build_private_assets(
+        "mimic3",
         str(raw),
         str(output),
         seed=6669,
@@ -74,3 +75,48 @@ def test_mimic3_builder_matches_formal_target_visit_graph_scope(tmp_path):
     assert train_y.shape == (3, 3)
     assert visit_lens.max() == 1
     assert not np.any(train_x[:, 1])
+
+
+def test_mimic4_builder_uses_formal_sampling_split_and_graph_scope(tmp_path):
+    raw = tmp_path / "authorized_mimic4" / "hosp"
+    output = tmp_path / "private_assets"
+    raw.mkdir(parents=True)
+    patient_lines = ["subject_id,anchor_year,anchor_year_group"]
+    admission_lines = ["subject_id,hadm_id,admittime"]
+    diagnosis_lines = ["subject_id,hadm_id,seq_num,icd_code,icd_version"]
+    for patient_id in range(1, 6):
+        first_admission, target_admission = patient_id * 10, patient_id * 10 + 1
+        patient_lines.append("{},2015,2010 - 2012".format(patient_id))
+        admission_lines.extend(
+            [
+                "{},{},2020-01-01 00:00:00".format(patient_id, first_admission),
+                "{},{},2020-01-03 00:00:00".format(patient_id, target_admission),
+            ]
+        )
+        diagnosis_lines.extend(
+            [
+                "{},{},1,I10,10".format(patient_id, first_admission),
+                "{},{},1,4019,9".format(patient_id, target_admission),
+            ]
+        )
+        if patient_id == 1:
+            diagnosis_lines.append("{},{},2,4280,9".format(patient_id, target_admission))
+    (raw / "patients.csv").write_text("\n".join(patient_lines) + "\n", encoding="ascii")
+    (raw / "admissions.csv").write_text("\n".join(admission_lines) + "\n", encoding="ascii")
+    (raw / "diagnoses_icd.csv").write_text("\n".join(diagnosis_lines) + "\n", encoding="ascii")
+    gem = tmp_path / "gem.csv"
+    gem.write_text("ICD10,ICD9\nI10,4019\n", encoding="ascii")
+
+    build_private_assets(
+        "mimic4",
+        str(raw.parent),
+        str(output),
+        gem_path=str(gem),
+        sample_num=5,
+        train_num=3,
+        test_num=1,
+    )
+    assert (output / "split_ids.json").is_file()
+    adjacency = load_sparse(output / "code_adj.npz")
+    assert adjacency.shape == (2, 2)
+    assert np.allclose(adjacency.sum(axis=1), 1.0)

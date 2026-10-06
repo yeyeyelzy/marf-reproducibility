@@ -8,7 +8,7 @@ model training.  For MIMIC-III, the authorized raw directory must contain
 `ADMISSIONS.csv[.gz]` and `DIAGNOSES_ICD.csv[.gz]`:
 
 ```bash
-python -m scripts.preprocess_mimic3 \
+python -m scripts.preprocess_mimic --dataset mimic3 \
   --mimic-root /secure/raw/mimiciii \
   --destination /secure/mimic3_assets
 ```
@@ -22,13 +22,13 @@ derived assets.
 For MIMIC-IV, the release includes a corresponding entry point:
 
 ```bash
-python -m scripts.preprocess_mimic4 \
+python -m scripts.preprocess_mimic --dataset mimic4 \
   --mimic-root /secure/raw/mimiciv \
-  --gem-csv /secure/knowledge/2018_I10gem.txt \
+  --gem-path /secure/knowledge/2018_I10gem.txt \
   --destination /secure/mimic4_assets
 ```
 
-`--gem-csv` accepts either CDC's fixed-width `2018_I10gem.txt` file or a
+`--gem-path` accepts either CDC's fixed-width `2018_I10gem.txt` file or a
 two-column CSV headed `ICD10,ICD9`.  The MIMIC-IV root must contain the
 authorized `hosp/patients`, `hosp/admissions`, and `hosp/diagnoses_icd`
 tables in CSV or CSV.GZ form.
@@ -39,6 +39,15 @@ target visits, while validation and test patients never contribute to the
 graph.  Historical model tensors exclude each patient's target visit.  See
 [DATA_FORMAT.md](DATA_FORMAT.md) for the exact support, pruning, and
 normalization chain.
+
+The formal TCEM splitter first places one supporting patient for every code
+and the longest-sequence patient in the training set, then shuffles the
+remaining patient IDs.  Its historical implementation converted patient IDs
+through Python sets, whose iteration order is not a portable serialization
+format.  Each preprocessing run therefore writes a private
+`split_ids.json`.  To reproduce an already reported split exactly, retain that
+file outside the repository and pass it back with `--split-manifest`.  The
+manifest contains controlled patient identifiers and must never be committed.
 
 Then create a private hierarchy asset and replace the placeholder
 `ontology_path` in the dataset configuration.

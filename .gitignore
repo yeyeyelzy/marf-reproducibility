@@ -19,6 +19,8 @@
 *.csv
 *.tsv
 *.zip
+code_map.json
+split_ids.json
 
 # Environments and generated files
 .venv/

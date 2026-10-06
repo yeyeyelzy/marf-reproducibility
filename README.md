@@ -48,7 +48,7 @@ and outputs.  Replace every placeholder before running them:
 
 ```bash
 # Build private MIMIC-III tensors and the formal training-split graph.
-python -m scripts.preprocess_mimic3 \
+python -m scripts.preprocess_mimic --dataset mimic3 \
   --mimic-root /secure/raw/mimiciii \
   --destination /secure/mimic3_assets
 
