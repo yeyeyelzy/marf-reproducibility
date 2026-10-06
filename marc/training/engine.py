@@ -24,6 +24,7 @@ class TrainingConfig:
     patience: int = 5
     min_delta: float = 1e-4
     seed: int = 123
+    time_weight_mode: str = "split_specific"
 
     def validate(self) -> None:
         if self.max_epochs < 1 or self.batch_size < 1:
@@ -32,6 +33,8 @@ class TrainingConfig:
             raise ValueError("The formal MARC protocol uses weight_decay=0.")
         if self.patience < 1 or self.min_delta < 0.0:
             raise ValueError("patience must be positive and min_delta non-negative.")
+        if self.time_weight_mode != "split_specific":
+            raise ValueError("The reported MARC experiments use split_specific time weights.")
 
 
 def seed_everything(seed: int) -> None:
@@ -46,7 +49,7 @@ def seed_everything(seed: int) -> None:
 def evaluate(model, dataset, loss_fn: nn.Module, return_embeddings: bool = False) -> Dict[str, object]:
     model.eval()
     total_loss, total_count = 0.0, 0
-    labels, probabilities, embeddings = [], [], []
+    labels, probabilities, embeddings, sample_indices = [], [], [], []
     for step in range(len(dataset)):
         code_x, lens, divided, y, neighbors, time_weight, gaps = dataset[step]
         if return_embeddings:
@@ -60,11 +63,19 @@ def evaluate(model, dataset, loss_fn: nn.Module, return_embeddings: bool = False
         total_count += y.numel()
         labels.append(y.detach().cpu().numpy())
         probabilities.append(probability.detach().cpu().numpy())
+        start = step * dataset.batch_size
+        end = min((step + 1) * dataset.batch_size, dataset.size)
+        sample_indices.append(np.asarray(dataset.indices[start:end], dtype=np.int64))
     labels_np = np.concatenate(labels)
     probabilities_np = np.concatenate(probabilities)
     metrics = heart_failure_metrics(labels_np, probabilities_np)
     metrics["loss"] = float(total_loss / max(total_count, 1))
-    result: Dict[str, object] = {"metrics": metrics, "labels": labels_np, "probabilities": probabilities_np}
+    result: Dict[str, object] = {
+        "metrics": metrics,
+        "labels": labels_np,
+        "probabilities": probabilities_np,
+        "patient_index": np.concatenate(sample_indices),
+    }
     if return_embeddings:
         result["embeddings"] = np.vstack(embeddings)
     return result
@@ -86,7 +97,6 @@ def train(model, train_data, valid_data, config: MARCConfig, training: TrainingC
     """Train one independent run; checkpoint selection uses validation AUROC only."""
     config.validate()
     training.validate()
-    seed_everything(training.seed)
     output = Path(output_dir)
     output.mkdir(parents=True, exist_ok=True)
     optimizer = torch.optim.Adam(model.parameters(), weight_decay=training.weight_decay)
@@ -155,10 +165,27 @@ def train(model, train_data, valid_data, config: MARCConfig, training: TrainingC
     return {"best_epoch": best_epoch, "best_valid_auroc": best_auc, "history": history}
 
 
-def load_checkpoint(model, path: str, device: torch.device) -> Dict[str, object]:
+def load_checkpoint(
+    model,
+    path: str,
+    device: torch.device,
+    expected_config: Optional[MARCConfig] = None,
+    expected_training: Optional[TrainingConfig] = None,
+) -> Dict[str, object]:
     try:
         checkpoint = torch.load(path, map_location=device, weights_only=False)
     except TypeError:
         checkpoint = torch.load(path, map_location=device)
+    if expected_config is not None:
+        observed = dict(checkpoint.get("marc_config", {}))
+        requested = asdict(expected_config)
+        observed.pop("ontology_path", None)
+        requested.pop("ontology_path", None)
+        if observed != requested:
+            raise ValueError("Checkpoint MARC configuration does not match the requested run configuration.")
+    if expected_training is not None:
+        observed_mode = dict(checkpoint.get("training_config", {})).get("time_weight_mode", "split_specific")
+        if observed_mode != expected_training.time_weight_mode:
+            raise ValueError("Checkpoint time-weight mode does not match the requested run configuration.")
     model.load_state_dict(checkpoint["model_state_dict"], strict=True)
     return checkpoint

@@ -11,7 +11,7 @@ from marc.data import HeartFailureDataset, load_adjacency
 from marc.models import MARC
 from marc.models.relation import relation_loss
 from marc.training.engine import evaluate, load_checkpoint
-from scripts.common import load_run_config, select_device
+from scripts.common import apply_private_overrides, load_run_config, select_device
 
 
 def mean_pair_similarity(embeddings: np.ndarray, labels: np.ndarray):
@@ -30,15 +30,17 @@ def main() -> None:
     parser.add_argument("--config", required=True)
     parser.add_argument("--data-root", required=True)
     parser.add_argument("--checkpoint", required=True)
+    parser.add_argument("--ontology-path", default=None)
     parser.add_argument("--output", required=True, help="Private CSV output outside the repository.")
     parser.add_argument("--device", default="auto")
     args = parser.parse_args()
     config, training, _ = load_run_config(args.config)
+    apply_private_overrides(config, args.ontology_path)
     device = select_device(args.device)
     adjacency = load_adjacency(args.data_root, device)
-    data = HeartFailureDataset(args.data_root, "valid", training.batch_size, False, device)
+    data = HeartFailureDataset(args.data_root, "valid", training.batch_size, False, device, training.time_weight_mode)
     model = MARC(data.code_x.shape[-1], adjacency, config).to(device)
-    load_checkpoint(model, args.checkpoint, device)
+    load_checkpoint(model, args.checkpoint, device, config, training)
     result = evaluate(model, data, torch.nn.BCELoss(), return_embeddings=True)
     same, different = mean_pair_similarity(result["embeddings"], result["labels"])
     embedding = torch.from_numpy(result["embeddings"]).to(device)

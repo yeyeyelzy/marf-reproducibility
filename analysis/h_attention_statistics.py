@@ -10,7 +10,7 @@ import torch
 from marc.data import HeartFailureDataset, load_adjacency
 from marc.models import MARC
 from marc.training.engine import load_checkpoint
-from scripts.common import load_run_config, select_device
+from scripts.common import apply_private_overrides, load_run_config, select_device
 
 
 def main() -> None:
@@ -18,30 +18,31 @@ def main() -> None:
     parser.add_argument("--config", required=True)
     parser.add_argument("--data-root", required=True)
     parser.add_argument("--checkpoint", required=True)
+    parser.add_argument("--ontology-path", default=None)
     parser.add_argument("--output", required=True, help="Private CSV output outside the repository.")
     parser.add_argument("--device", default="auto")
     args = parser.parse_args()
     config, training, _ = load_run_config(args.config)
+    apply_private_overrides(config, args.ontology_path)
     if not config.use_hierarchy:
         raise ValueError("H statistics require use_hierarchy=True.")
     device = select_device(args.device)
-    data = HeartFailureDataset(args.data_root, "valid", training.batch_size, False, device)
+    data = HeartFailureDataset(args.data_root, "valid", training.batch_size, False, device, training.time_weight_mode)
     model = MARC(data.code_x.shape[-1], load_adjacency(args.data_root, device), config).to(device)
-    load_checkpoint(model, args.checkpoint, device)
+    load_checkpoint(model, args.checkpoint, device, config, training)
     model.eval()
     with torch.no_grad():
-        leaves, _, _ = model.embedding_layer()
-        _, weights, _ = model.hierarchy(leaves, return_attention=True)
-    weights = weights.detach().cpu().numpy()
-    self_mass = weights[:, 0]
-    ancestor_mass = 1.0 - self_mass
-    entropy = -(weights * np.log(np.maximum(weights, np.finfo(np.float64).eps))).sum(axis=1)
-    row = {
-        "rho": float(model.hierarchy.rho.detach().item()),
-        "mean_self_attention": float(self_mass.mean()),
-        "mean_ancestor_attention": float(ancestor_mass.mean()),
-        "mean_attention_entropy": float(entropy.mean()),
-    }
+        center, neighbor, _ = model.embedding_layer()
+        _, center_weights, _ = model.hierarchy(center, return_attention=True)
+        _, neighbor_weights, _ = model.hierarchy(neighbor, return_attention=True)
+    row = {"rho": float(model.hierarchy.rho.detach().item())}
+    for role, tensor in (("center", center_weights), ("neighbor", neighbor_weights)):
+        weights = tensor.detach().cpu().numpy()
+        self_mass = weights[:, 0]
+        entropy = -(weights * np.log(np.maximum(weights, np.finfo(np.float64).eps))).sum(axis=1)
+        row[role + "_mean_self_attention"] = float(self_mass.mean())
+        row[role + "_mean_ancestor_attention"] = float((1.0 - self_mass).mean())
+        row[role + "_mean_attention_entropy"] = float(entropy.mean())
     output = Path(args.output)
     output.parent.mkdir(parents=True, exist_ok=True)
     with output.open("w", newline="", encoding="utf-8") as handle:

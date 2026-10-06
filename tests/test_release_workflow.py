@@ -5,6 +5,9 @@ import pytest
 import torch
 
 from analysis.r_geometry import mean_pair_similarity
+from analysis.r_geometry import main as r_geometry_main
+from analysis.e_gate_statistics import main as e_gate_main
+from analysis.h_attention_statistics import main as h_attention_main
 from marc.data.dataset import load_sparse
 from marc.preprocessing.mimic import _load_gem, save_sparse
 from scripts.evaluate import main as evaluate_main
@@ -47,6 +50,11 @@ def test_train_and_evaluate_cli_are_seed_reproducible(tmp_path, monkeypatch):
     save_sparse(data_root / "code_adj.npz", adjacency)
     for split in ("train", "valid", "test"):
         _write_split(data_root, split, labels=[0, 1, 0, 1])
+    hierarchy = tmp_path / "hierarchy.npz"
+    ancestor_ids = np.asarray([[0, 0, 0], [1, 4, 5], [2, 4, 6], [3, 4, 0]], dtype=np.int64)
+    ancestor_mask = ancestor_ids != 0
+    ancestor_mask[0, 0] = True
+    np.savez_compressed(hierarchy, ancestor_ids=ancestor_ids, ancestor_mask=ancestor_mask)
     config = tmp_path / "config.yaml"
     config.write_text(
         """model:
@@ -56,14 +64,15 @@ def test_train_and_evaluate_cli_are_seed_reproducible(tmp_path, monkeypatch):
   temporal_attention_size: 3
   gap_embed_size: 2
   state_size: 3
-  use_hierarchy: false
-  use_relation_calibration: false
+  hierarchy_attention_size: 4
+  ontology_path: {hierarchy}
 training:
   max_epochs: 2
   batch_size: 2
   patience: 1
   seed: 41
-""",
+  time_weight_mode: split_specific
+""".format(hierarchy=hierarchy.as_posix()),
         encoding="utf-8",
     )
     run_one, run_two = tmp_path / "run_one", tmp_path / "run_two"
@@ -110,6 +119,34 @@ training:
     )
     evaluate_main()
     assert (run_one / "test_metrics.json").is_file()
+    with np.load(run_one / "test_predictions.npz", allow_pickle=False) as predictions:
+        assert set(predictions.files) == {"patient_index", "label", "probability", "prediction", "embedding_z"}
+
+    analyses = (
+        (r_geometry_main, "r.csv"),
+        (e_gate_main, "e.csv"),
+        (h_attention_main, "h.csv"),
+    )
+    for entrypoint, filename in analyses:
+        monkeypatch.setattr(
+            sys,
+            "argv",
+            [
+                "analysis.py",
+                "--config",
+                str(config),
+                "--data-root",
+                str(data_root),
+                "--checkpoint",
+                str(run_one / "best_valid_auc.pt"),
+                "--output",
+                str(run_one / filename),
+                "--device",
+                "cpu",
+            ],
+        )
+        entrypoint()
+        assert (run_one / filename).is_file()
 
 
 def test_sparse_loader_rejects_invalid_indices(tmp_path):

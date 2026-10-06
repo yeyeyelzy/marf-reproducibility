@@ -1,4 +1,5 @@
 import json
+import hashlib
 from dataclasses import fields
 from pathlib import Path
 from typing import Dict, Tuple
@@ -33,6 +34,13 @@ def load_run_config(path: str) -> Tuple[MARCConfig, TrainingConfig, Dict[str, ob
     return model, training, payload
 
 
+def apply_private_overrides(model: MARCConfig, ontology_path: str = None) -> MARCConfig:
+    """Apply paths to controlled assets without editing a tracked YAML file."""
+    if ontology_path is not None:
+        model.ontology_path = ontology_path
+    return model
+
+
 def select_device(name: str) -> torch.device:
     if name == "auto":
         return torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -43,3 +51,20 @@ def write_json(path: Path, payload: Dict[str, object]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w", encoding="utf-8") as handle:
         json.dump(payload, handle, indent=2, sort_keys=True)
+
+
+def file_sha256(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def private_asset_manifest(data_root: str, model: MARCConfig) -> Dict[str, object]:
+    adjacency = Path(data_root) / "code_adj.npz"
+    assets = {"code_adj_sha256": file_sha256(adjacency)}
+    if model.use_hierarchy:
+        hierarchy = Path(str(model.ontology_path))
+        assets["ontology_sha256"] = file_sha256(hierarchy)
+    return assets

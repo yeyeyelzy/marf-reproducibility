@@ -1,5 +1,6 @@
 """CCS hierarchy calibration used by MARC H."""
 
+import hashlib
 import math
 from pathlib import Path
 from typing import Tuple
@@ -7,6 +8,14 @@ from typing import Tuple
 import numpy as np
 import torch
 from torch import nn
+
+
+def file_sha256(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
 
 
 class HierarchyCalibration(nn.Module):
@@ -38,6 +47,7 @@ class HierarchyCalibration(nn.Module):
         if not 0.0 < residual_init < 1.0:
             raise ValueError("residual_init must be in (0, 1).")
 
+        ontology_sha256 = file_sha256(asset)
         with np.load(str(asset), allow_pickle=False) as payload:
             if set(payload.files) != {"ancestor_ids", "ancestor_mask"}:
                 raise ValueError("Hierarchy asset must contain ancestor_ids and ancestor_mask only.")
@@ -50,11 +60,16 @@ class HierarchyCalibration(nn.Module):
         self.embedding_dim = embedding_dim
         self.aggregation = aggregation
         self.writeback = writeback
+        self.ontology_sha256 = ontology_sha256
         self.max_depth = int(ids.shape[1])
         self.register_buffer("ancestor_ids", torch.from_numpy(ids))
         self.register_buffer("ancestor_mask", torch.from_numpy(mask))
         self.register_buffer("ancestor_compact_index", torch.from_numpy(compact))
         self.register_buffer("original_ancestor_ids", torch.from_numpy(original_ids))
+        self.register_buffer(
+            "ontology_sha256_bytes",
+            torch.tensor(list(bytes.fromhex(ontology_sha256)), dtype=torch.uint8),
+        )
 
         self.ancestor_embedding = nn.Embedding(int(original_ids.size), embedding_dim)
         self.attention_hidden = nn.Linear(2 * embedding_dim, attention_size)
@@ -96,6 +111,34 @@ class HierarchyCalibration(nn.Module):
     @property
     def rho(self) -> torch.Tensor:
         return torch.sigmoid(self.rho_logit)
+
+    def get_extra_state(self):
+        return {"ontology_sha256": self.ontology_sha256}
+
+    def set_extra_state(self, state):
+        observed = None if state is None else state.get("ontology_sha256")
+        if observed != self.ontology_sha256:
+            raise RuntimeError(
+                "checkpoint ontology SHA-256 mismatch: checkpoint={}, requested={}".format(
+                    observed, self.ontology_sha256
+                )
+            )
+
+    def _load_from_state_dict(
+        self, state_dict, prefix, local_metadata, strict, missing_keys, unexpected_keys, error_msgs
+    ):
+        hash_key = prefix + "ontology_sha256_bytes"
+        if hash_key in state_dict:
+            observed = bytes(state_dict[hash_key].detach().cpu().tolist()).hex()
+            if observed != self.ontology_sha256:
+                raise RuntimeError(
+                    "checkpoint ontology SHA-256 mismatch: checkpoint={}, requested={}".format(
+                        observed, self.ontology_sha256
+                    )
+                )
+        super()._load_from_state_dict(
+            state_dict, prefix, local_metadata, strict, missing_keys, unexpected_keys, error_msgs
+        )
 
     def _candidates(self, leaves: torch.Tensor) -> torch.Tensor:
         repeated_leaves = leaves.unsqueeze(1).expand(-1, self.max_depth, -1)

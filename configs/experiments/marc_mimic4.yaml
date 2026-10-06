@@ -28,3 +28,4 @@ training:
   patience: 5
   min_delta: 0.0001
   seed: 123
+  time_weight_mode: split_specific

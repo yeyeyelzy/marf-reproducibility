@@ -1,4 +1,6 @@
 import argparse
+import json
+from pathlib import Path
 
 from marc.preprocessing.ccs import build_hierarchy
 
@@ -10,7 +12,12 @@ def main() -> None:
     parser.add_argument("--output", required=True)
     parser.add_argument("--encoding", default="latin-1")
     args = parser.parse_args()
-    print(build_hierarchy(args.code_map, args.ccs_csv, args.output, args.encoding))
+    audit = build_hierarchy(args.code_map, args.ccs_csv, args.output, args.encoding)
+    output = Path(args.output)
+    audit_path = output.with_name(output.stem + "_audit.json")
+    with audit_path.open("w", encoding="utf-8") as handle:
+        json.dump(audit, handle, indent=2, sort_keys=True)
+    print(audit)
 
 
 if __name__ == "__main__":

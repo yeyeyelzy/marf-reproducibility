@@ -54,14 +54,15 @@ python -m scripts.preprocess_mimic --dataset mimic3 \
 
 # Build a private CCS hierarchy from a private code map and public CCS file.
 python -m scripts.build_ccs_hierarchy \
-  --code-map /secure/assets/code_map.json \
+  --code-map /secure/mimic3_assets/code_map.json \
   --ccs-csv /secure/public-knowledge/CCS_MULTI_DX_TOOL_2015.csv \
-  --output /secure/assets/ccs_hierarchy.npz
+  --output /secure/mimic3_assets/ccs_hierarchy.npz
 
 # Train one run.  Checkpoints and logs are written outside this repository.
 python -m scripts.train \
   --config configs/experiments/marc_mimic3.yaml \
   --data-root /secure/mimic3_assets \
+  --ontology-path /secure/mimic3_assets/ccs_hierarchy.npz \
   --output-dir /secure/results/marc_mimic3/run_01 \
   --device cuda
 
@@ -69,6 +70,7 @@ python -m scripts.train \
 python -m scripts.evaluate \
   --config configs/experiments/marc_mimic3.yaml \
   --data-root /secure/mimic3_assets \
+  --ontology-path /secure/mimic3_assets/ccs_hierarchy.npz \
   --checkpoint /secure/results/marc_mimic3/run_01/best_valid_auc.pt \
   --split test --output-dir /secure/results/marc_mimic3/run_01 \
   --device cuda
@@ -77,6 +79,8 @@ python -m scripts.evaluate \
 See [docs/REPRODUCTION.md](docs/REPRODUCTION.md) for the data contract,
 five-run protocol, ablations, and mechanism exports.  The package must not be
 used to redistribute controlled clinical data.
+The mapping between the retained release modules and the formal execution
+path is summarized in [docs/IMPLEMENTATION_PARITY.md](docs/IMPLEMENTATION_PARITY.md).
 
 ## Release boundary
 

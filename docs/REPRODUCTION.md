@@ -49,8 +49,10 @@ format.  Each preprocessing run therefore writes a private
 file outside the repository and pass it back with `--split-manifest`.  The
 manifest contains controlled patient identifiers and must never be committed.
 
-Then create a private hierarchy asset and replace the placeholder
-`ontology_path` in the dataset configuration.
+Then create a private hierarchy asset.  Keep the tracked configuration
+unchanged and pass the private file with `--ontology-path`; this also binds its
+SHA-256 value into the selected checkpoint and records it in the private run
+manifest.
 
 ## 2. Main MARC runs
 
@@ -62,10 +64,13 @@ and predictions in a private output root.
 
 ```bash
 python -m scripts.train --config /secure/configs/marc_mimic3.yaml \
-  --data-root /secure/mimic3_assets --output-dir /secure/results/marc/run_01 \
+  --data-root /secure/mimic3_assets \
+  --ontology-path /secure/mimic3_assets/ccs_hierarchy.npz \
+  --output-dir /secure/results/marc/run_01 \
   --device cuda
 python -m scripts.evaluate --config /secure/configs/marc_mimic3.yaml \
   --data-root /secure/mimic3_assets \
+  --ontology-path /secure/mimic3_assets/ccs_hierarchy.npz \
   --checkpoint /secure/results/marc/run_01/best_valid_auc.pt \
   --split test --output-dir /secure/results/marc/run_01 --device cuda
 ```
@@ -73,7 +78,10 @@ python -m scripts.evaluate --config /secure/configs/marc_mimic3.yaml \
 `train.py` uses Adam with weight decay 0 and the paper learning-rate sequence:
 0.01 (epoch 1), 0.001 (epoch 2), 0.0001 (epochs 3--19), and 0.00001
 thereafter.  Early stopping uses validation AUROC, patience 5, and minimum
-improvement `1e-4`.
+improvement `1e-4`.  The reported runs use split-specific time weights; the
+mode is stored in both the YAML and checkpoint.  Evaluation writes metrics and
+an NPZ containing patient order, labels, probabilities, 0.5-threshold
+predictions, and patient embeddings to the private output directory.
 
 ## 3. Factorial and controlled mechanisms
 

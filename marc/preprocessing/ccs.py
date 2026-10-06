@@ -1,11 +1,20 @@
 """Build the private CCS hierarchy asset from public CCS and a local code map."""
 
 import csv
+import hashlib
 import json
 from pathlib import Path
 from typing import Dict, List, Tuple
 
 import numpy as np
+
+
+def _sha256(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
 
 
 def normalize_icd9(value: str) -> str:
@@ -60,4 +69,12 @@ def build_hierarchy(code_map_path: str, ccs_csv: str, output: str, encoding: str
     output_path = Path(output)
     output_path.parent.mkdir(parents=True, exist_ok=True)
     np.savez_compressed(str(output_path), ancestor_ids=ids, ancestor_mask=mask)
-    return {"vocabulary_size": len(ordered), "matched_codes": matched, "coverage": matched / float(len(ordered)), "maximum_depth": depth}
+    return {
+        "vocabulary_size": len(ordered),
+        "matched_codes": matched,
+        "coverage": matched / float(len(ordered)),
+        "maximum_depth": depth,
+        "code_map_sha256": _sha256(Path(code_map_path)),
+        "ccs_csv_sha256": _sha256(Path(ccs_csv)),
+        "ontology_sha256": _sha256(output_path),
+    }
