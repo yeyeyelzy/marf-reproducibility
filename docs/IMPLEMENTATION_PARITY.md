@@ -1,10 +1,9 @@
-# Formal implementation parity
+# Implementation map
 
-This release is a focused extraction of the code path used by the formal MARC
-runs.  Unused exploratory modules were not carried into the release.  The
-following behaviors are retained without changing the reported method:
+This release contains the MARC execution path used in the experiments.  The
+main components are organized as follows:
 
-| Formal component | Release component | Retained behavior |
+| Component | Release module | Behavior |
 | --- | --- | --- |
 | TCEM embedding, graph, transition, and temporal attention | `marc/models/backbone.py`, `attention.py` | dimensions, initialization order, graph propagation, and visit aggregation |
 | CCS ontology residual | `marc/models/hierarchy.py` | shared center/neighbor attention, trainable ancestor table, residual coefficient, and ontology hash binding |

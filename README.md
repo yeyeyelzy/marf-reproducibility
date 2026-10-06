@@ -47,7 +47,7 @@ The commands below use paths outside the repository for all controlled data
 and outputs.  Replace every placeholder before running them:
 
 ```bash
-# Build private MIMIC-III tensors and the formal training-split graph.
+# Build private MIMIC-III tensors and the training-split graph.
 python -m scripts.preprocess_mimic --dataset mimic3 \
   --mimic-root /secure/raw/mimiciii \
   --destination /secure/mimic3_assets
@@ -79,8 +79,8 @@ python -m scripts.evaluate \
 See [docs/REPRODUCTION.md](docs/REPRODUCTION.md) for the data contract,
 five-run protocol, ablations, and mechanism exports.  The package must not be
 used to redistribute controlled clinical data.
-The mapping between the retained release modules and the formal execution
-path is summarized in [docs/IMPLEMENTATION_PARITY.md](docs/IMPLEMENTATION_PARITY.md).
+The code organization is summarized in
+[docs/IMPLEMENTATION_PARITY.md](docs/IMPLEMENTATION_PARITY.md).
 
 ## Release boundary
 

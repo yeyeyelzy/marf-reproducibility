@@ -13,7 +13,7 @@ python -m scripts.preprocess_mimic --dataset mimic3 \
   --destination /secure/mimic3_assets
 ```
 
-The formal defaults are 6,000 training patients, 1,000 test patients, the
+The dataset defaults are 6,000 training patients, 1,000 test patients, the
 remaining eligible patients for validation, randomization seed 6669, and graph
 threshold 0.01.  The command writes only to the user-selected private output
 directory.  It does not package or upload raw tables, patient identifiers, or
@@ -33,18 +33,16 @@ two-column CSV headed `ICD10,ICD9`.  The MIMIC-IV root must contain the
 authorized `hosp/patients`, `hosp/admissions`, and `hosp/diagnoses_icd`
 tables in CSV or CSV.GZ form.
 
-Both builders retain the graph scope used in the formal TCEM/MARC runs: the
-graph is computed from all visits of training-split patients, including their
-target visits, while validation and test patients never contribute to the
-graph.  Historical model tensors exclude each patient's target visit.  See
-[DATA_FORMAT.md](DATA_FORMAT.md) for the exact support, pruning, and
-normalization chain.
+Both builders construct the graph from training-split patient records;
+validation and test patients do not contribute to it.  Model inputs contain
+the visits preceding the prediction target.  See
+[DATA_FORMAT.md](DATA_FORMAT.md) for the support, pruning, and normalization
+chain.
 
-The formal TCEM splitter first places one supporting patient for every code
+The preprocessing splitter first places one supporting patient for every code
 and the longest-sequence patient in the training set, then shuffles the
-remaining patient IDs.  Its historical implementation converted patient IDs
-through Python sets, whose iteration order is not a portable serialization
-format.  Each preprocessing run therefore writes a private
+remaining patient IDs.  Because the split procedure uses Python sets, each
+preprocessing run also writes a private
 `split_ids.json`.  To reproduce an already reported split exactly, retain that
 file outside the repository and pass it back with `--split-manifest`.  The
 manifest contains controlled patient identifiers and must never be committed.

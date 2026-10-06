@@ -30,13 +30,9 @@ label used by the prediction task.
 depending on Python set iteration order.  Both JSON files are controlled,
 cohort-derived artifacts and must remain outside the source repository.
 
-`code_adj.npz` is the training-split graph passed to graph propagation.  To
-match the retained TCEM preprocessing used for the reported experiments, the
-MIMIC-III and MIMIC-IV builders count coded pairs from every admission of
-training-split patients, including those patients' held-out target admission.
-No validation- or test-patient admission contributes to the graph.  The code
-vocabulary is defined over the eligible cohort, as in the retained protocol;
-only the training split contributes graph counts or weights.
+`code_adj.npz` is the graph passed to graph propagation.  The MIMIC-III and
+MIMIC-IV builders derive its counts and weights from training-split patient
+records; validation and test patients do not contribute to the graph.
 
 For each included admission, the builder counts unique unordered code pairs
 in both directions, leaves self loops absent, prunes entries whose preliminary
