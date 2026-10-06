@@ -34,7 +34,9 @@ def build_cooccurrence_graph(visits: Iterable[Sequence[int]], code_num: int, thr
     active_rows = raw.sum(axis=-1, keepdims=True) > (1.0 / threshold)
     raw[np.logical_and(preliminary < threshold, active_rows)] = 0
     np.fill_diagonal(raw, 0)
-    return normalize_rows(raw).astype(np.float32)
+    # The formal preprocessing saves normalized adjacency values as float64;
+    # the training loader converts them to float32 on the selected device.
+    return normalize_rows(raw)
 
 
 def generate_neighbors(code_x: np.ndarray, visit_lens: np.ndarray, adjacency: np.ndarray) -> np.ndarray:

@@ -109,21 +109,25 @@ def split_patients(patients: OrderedDict, code_map: Dict[str, int], train_num: i
         if len(visits) > maximum_visits:
             maximum_visits, longest_patient = len(visits), patient_id
     required = set()
-    for code in code_map:
-        for patient_id, visits in patients.items():
-            if any(code in codes for _, codes in visits):
-                required.add(patient_id)
-                break
-        else:
-            raise ValueError("A code map entry has no supporting patient: {}".format(code))
+    uncovered = set(code_map)
+    for patient_id, visits in patients.items():
+        patient_codes = {code for _, codes in visits for code in codes}
+        newly_covered = uncovered.intersection(patient_codes)
+        if newly_covered:
+            required.add(patient_id)
+            uncovered.difference_update(newly_covered)
+        if not uncovered:
+            break
+    if uncovered:
+        raise ValueError("Code map entries lack supporting patients: {}".format(len(uncovered)))
     required.add(longest_patient)
     if len(required) > train_num:
         raise ValueError("Vocabulary coverage requires more patients than the requested train split.")
     random = np.random.RandomState(seed)
-    remaining = np.asarray([patient_id for patient_id in identifiers if patient_id not in required])
+    remaining = np.asarray(sorted(patient_id for patient_id in identifiers if patient_id not in required))
     random.shuffle(remaining)
     valid_num = identifiers.size - train_num - test_num
-    train = np.asarray(list(required) + remaining[: train_num - len(required)].tolist())
+    train = np.asarray(sorted(required.union(set(remaining[: train_num - len(required)].tolist()))))
     valid_start = train_num - len(required)
     valid = remaining[valid_start : valid_start + valid_num]
     test = remaining[valid_start + valid_num :]
@@ -143,6 +147,7 @@ def _build_split(patient_ids: Iterable[int], patients: OrderedDict, code_map: Di
     patient_ids = list(patient_ids)
     code_num = len(code_map)
     code_x = np.zeros((len(patient_ids), max_visits, code_num), dtype=bool)
+    code_y = np.zeros((len(patient_ids), code_num), dtype=bool)
     labels = np.zeros(len(patient_ids), dtype=np.int64)
     lens = np.zeros(len(patient_ids), dtype=np.int64)
     timestamps = np.zeros((len(patient_ids), max_visits), dtype=np.int64)
@@ -153,11 +158,12 @@ def _build_split(patient_ids: Iterable[int], patients: OrderedDict, code_map: Di
         for visit_index, (time, codes) in enumerate(history):
             code_x[row, visit_index, [code_map[code] for code in codes]] = True
             timestamps[row, visit_index] = int(time.toordinal())
+        code_y[row, [code_map[code] for code in target]] = True
         labels[row] = any(code.startswith("428") for code in target)
     neighbors = generate_neighbors(code_x, lens, adjacency)
     divided = divide_transition_groups(code_x, neighbors, lens)
     time_weight = build_time_weight(code_x, lens, timestamps)
-    return code_x, labels, lens, divided, neighbors, time_weight, timestamps
+    return code_x, code_y, labels, lens, divided, neighbors, time_weight, timestamps
 
 
 def build_time_weight(code_x: np.ndarray, lens: np.ndarray, timestamps: np.ndarray) -> np.ndarray:
@@ -195,16 +201,24 @@ def build_private_assets(mimic_root: str, gem_csv: str, destination: str, seed: 
     train_visits = ([code_map[code] for code in codes] for patient in train_ids for _, codes in selected[int(patient)])
     adjacency = build_cooccurrence_graph(train_visits, len(code_map), threshold=0.01)
     output = Path(destination)
+    if output.exists() and any(output.iterdir()):
+        raise FileExistsError("Private output directory is not empty: {}".format(output))
     output.mkdir(parents=True, exist_ok=True)
     save_sparse(output / "code_adj.npz", adjacency)
     with (output / "code_map.json").open("w", encoding="utf-8") as handle:
         json.dump(code_map, handle, indent=2, sort_keys=True)
-    max_visits = max(len(visits) - 1 for visits in selected.values())
+    # The retained TCEM preprocessing allocates the maximum total admission
+    # count.  Since the last admission is the target, one trailing all-zero
+    # history slot is possible and is ignored through ``visit_lens``.
+    max_visits = max(len(visits) for visits in selected.values())
     for name, ids in (("train", train_ids), ("valid", valid_ids), ("test", test_ids)):
         split = output / name
         split.mkdir(exist_ok=True)
-        code_x, labels, lens, divided, neighbors, weights, timestamps = _build_split(ids, selected, code_map, max_visits, adjacency)
+        code_x, code_y, labels, lens, divided, neighbors, weights, timestamps = _build_split(
+            ids, selected, code_map, max_visits, adjacency
+        )
         save_sparse(split / "code_x.npz", code_x)
+        save_sparse(split / "code_y.npz", code_y)
         save_sparse(split / "divided.npz", divided)
         save_sparse(split / "neighbors.npz", neighbors)
         save_sparse(split / "time_weight.npz", weights)

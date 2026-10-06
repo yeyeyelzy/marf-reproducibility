@@ -8,6 +8,7 @@ data_root/
 ├── code_adj.npz
 ├── train/
 │   ├── code_x.npz          # sparse [N, T, C]
+│   ├── code_y.npz          # optional private sparse target codes [N, C]
 │   ├── divided.npz         # sparse [N, T, C, 3]
 │   ├── neighbors.npz       # sparse [N, T, C]
 │   ├── visit_lens.npz      # dense key: lens, shape [N]
@@ -20,15 +21,25 @@ data_root/
 
 Sparse assets use exactly three arrays: `idx`, `values`, and `shape`.  The
 loader validates the expected shapes before training.  The held-out final
-visit provides only the heart-failure label; it is not part of `code_x`.
+visit is not part of `code_x`; it supplies `code_y` and the heart-failure
+label used by the prediction task.
 
-`code_adj.npz` is the training-only graph passed to graph propagation.  The
-MIMIC-IV asset builder constructs it from coded visits of training-split
-patients, counts unique within-visit code pairs, leaves self loops absent,
-prunes low row shares, and finally row-normalizes the nonnegative adjacency.
-The raw support is symmetric, while the final row-normalized matrix can be
-asymmetric.  E only scales positive entries of this saved matrix, so it does
-not create new edges and cannot increase a nonnegative original weight.
+`code_adj.npz` is the training-split graph passed to graph propagation.  To
+match the retained TCEM preprocessing used for the reported experiments, the
+MIMIC-III and MIMIC-IV builders count coded pairs from every admission of
+training-split patients, including those patients' held-out target admission.
+No validation- or test-patient admission contributes to the graph.  The code
+vocabulary is defined over the eligible cohort, as in the retained protocol;
+only the training split contributes graph counts or weights.
+
+For each included admission, the builder counts unique unordered code pairs
+in both directions, leaves self loops absent, prunes entries whose preliminary
+row share is below 0.01 only when the raw row sum exceeds 100, and then
+row-normalizes the retained nonnegative weights.  Raw pair support is
+symmetric, while thresholding by source-row share and final row normalization
+can make the saved directed support and weights asymmetric.  E only scales
+positive entries of this saved matrix, so it does not create new edges and
+cannot increase a nonnegative original weight.
 
 F1 is calculated using the fixed probability threshold 0.5.  AUROC, AUPRC,
 and Brier score use the unthresholded probabilities.

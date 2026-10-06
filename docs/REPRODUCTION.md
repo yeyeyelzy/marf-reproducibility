@@ -3,8 +3,23 @@
 ## 1. Build private assets
 
 Use authorized MIMIC access and place all raw and derived files outside this
-repository.  Build a training-only adjacency and hierarchy asset before model
-training.  For MIMIC-IV, the release includes an entry point:
+repository.  Build the training-split adjacency and hierarchy asset before
+model training.  For MIMIC-III, the authorized raw directory must contain
+`ADMISSIONS.csv[.gz]` and `DIAGNOSES_ICD.csv[.gz]`:
+
+```bash
+python -m scripts.preprocess_mimic3 \
+  --mimic-root /secure/raw/mimiciii \
+  --destination /secure/mimic3_assets
+```
+
+The formal defaults are 6,000 training patients, 1,000 test patients, the
+remaining eligible patients for validation, randomization seed 6669, and graph
+threshold 0.01.  The command writes only to the user-selected private output
+directory.  It does not package or upload raw tables, patient identifiers, or
+derived assets.
+
+For MIMIC-IV, the release includes a corresponding entry point:
 
 ```bash
 python -m scripts.preprocess_mimic4 \
@@ -17,6 +32,13 @@ python -m scripts.preprocess_mimic4 \
 two-column CSV headed `ICD10,ICD9`.  The MIMIC-IV root must contain the
 authorized `hosp/patients`, `hosp/admissions`, and `hosp/diagnoses_icd`
 tables in CSV or CSV.GZ form.
+
+Both builders retain the graph scope used in the formal TCEM/MARC runs: the
+graph is computed from all visits of training-split patients, including their
+target visits, while validation and test patients never contribute to the
+graph.  Historical model tensors exclude each patient's target visit.  See
+[DATA_FORMAT.md](DATA_FORMAT.md) for the exact support, pruning, and
+normalization chain.
 
 Then create a private hierarchy asset and replace the placeholder
 `ontology_path` in the dataset configuration.

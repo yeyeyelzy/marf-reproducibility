@@ -12,8 +12,8 @@ obtained ICD-10-CM-to-ICD-9-CM GEM source.  These public knowledge files are
 not committed here so that their license and version can be managed by the
 user.
 
-The supplied MIMIC-IV preprocessing entry point is a transparent starting
-point for building private assets.  MIMIC-III release assets should be built
-from the approved local preprocessing workflow and then checked against the
-data contract in [DATA_FORMAT.md](DATA_FORMAT.md).  No private asset should be
-copied into this repository, an issue, a pull request, or a public artifact.
+The supplied MIMIC-III and MIMIC-IV preprocessing entry points build private
+assets from an authorized local copy of the corresponding database.  Their
+outputs should be checked against the contract in
+[DATA_FORMAT.md](DATA_FORMAT.md).  No private asset should be copied into this
+repository, an issue, a pull request, or a public artifact.

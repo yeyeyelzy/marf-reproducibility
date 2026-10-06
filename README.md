@@ -19,7 +19,8 @@ Included:
 - H (CCS hierarchy), E (state-aware edge calibration), and R (training-only
   class-aware relation calibration);
 - full `2^3` factorial and controlled H/E/R configuration generators;
-- a MIMIC-IV private preprocessing entry point, training-only graph builder,
+- MIMIC-III and MIMIC-IV private preprocessing entry points, a training-split
+  graph builder,
   CCS hierarchy builder, training/evaluation scripts, and mechanism analyses;
 - tests that use only synthetic arrays.
 
@@ -46,6 +47,11 @@ The commands below use paths outside the repository for all controlled data
 and outputs.  Replace every placeholder before running them:
 
 ```bash
+# Build private MIMIC-III tensors and the formal training-split graph.
+python -m scripts.preprocess_mimic3 \
+  --mimic-root /secure/raw/mimiciii \
+  --destination /secure/mimic3_assets
+
 # Build a private CCS hierarchy from a private code map and public CCS file.
 python -m scripts.build_ccs_hierarchy \
   --code-map /secure/assets/code_map.json \
